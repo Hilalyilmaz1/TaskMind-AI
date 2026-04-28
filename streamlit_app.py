@@ -203,27 +203,44 @@ elif menu == "Calendar":
 
                 for task in tasks:
                     key = f"task_{task['id']}"
+                    completed = bool(task.get("completed", 0))
 
-                    # 🔥 state yoksa initialize et
+                    # 🔥 session state sync
                     if key not in st.session_state:
-                        st.session_state[key] = bool(task.get("completed", 0))
+                        st.session_state[key] = completed
 
-                    new_value = st.checkbox(
-                        f"📝 {task['text']}",
-                        key=key
+                    col1, col2 = st.columns([1, 10])
+
+                    # ✅ checkbox
+                    with col1:
+                        new_value = st.checkbox(
+                            "completed",
+                            #value=st.session_state[key],
+                            key=key,
+                            label_visibility="collapsed"
+                        )
+
+                    # 🎨 text (üstü çizili)
+                    with col2:
+                        if new_value:
+                            st.markdown(
+                                f"<span style='color:gray'>~~📝 {task['text']}~~</span>",
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.markdown(f"📝 {task['text']}")
+
+                    # 🔥 değişim varsa API'ye gönder
+                    if new_value != completed:
+                        update_res = requests.put(
+                        f"{API_URL}/task/{task['id']}",
+                        json={"completed": new_value},
+                        headers=get_headers()
                     )
 
-                    # 🔥 değişim kontrolü
-                    if new_value != bool(task.get("completed", 0)):
-                        update_res = requests.put(
-                            f"{API_URL}/task/{task['id']}",
-                            json={"completed": new_value},
-                            headers=get_headers()
-                        )
-                        st.write(update_res.text)
-
                         if update_res.status_code == 200:
-                            st.success("Updated ✅")
+                            st.toast("Updated ✅")
+                            st.rerun()
                         else:
                             st.error(f"Failed: {update_res.status_code}")
 

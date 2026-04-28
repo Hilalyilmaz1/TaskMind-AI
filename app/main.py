@@ -195,7 +195,7 @@ def update_task(
     db.refresh(task)
 
     return {"message": "Task updated", "completed": task.completed}
-
+    
 
 
 @app.get("/tasks")
