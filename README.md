@@ -8,7 +8,10 @@ AI-powered task management system with semantic search and intelligent daily pla
 📦 Backend API: ([link](http://localhost:8000/docs))
 
 ## 🎬 Demo
-![Demo](assests/Animation.gif)
+
+<p align="center">
+  <img src="assets/Animation.gif" width="800"/>
+</p>
 
 ## ✨ Features
 
@@ -26,8 +29,12 @@ AI-powered task management system with semantic search and intelligent daily pla
 - **AI Layer:** RAG pipeline (embeddings + LLM)
 - **Frontend:** Streamlit
 - **Notifications:** Telegram Bot API
+- 
+## 📸 UI Preview
 
-<img src="assets/telegram.jpeg/>" width="800"/>
+<p align="center">
+  <img src="assets/telegram.jpeg" width="800"/>
+</p>
 
 
 ## 🧠 How AI Works
