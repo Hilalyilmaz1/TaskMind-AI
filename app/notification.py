@@ -22,5 +22,3 @@ def send_telegram(message:str):
 
     requests.post(url, json=payload)
 
-print("TOKEN:", TELEGRAM_TOKEN)
-print("CHAT:", CHAT_ID)
