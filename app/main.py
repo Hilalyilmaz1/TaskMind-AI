@@ -90,6 +90,9 @@ def get_current_user(
     db_user=db.query(user).filter(user.id==payload["user_id"]).first()
     return db_user
 
+@app.get("/")
+def root():
+    return {"message": "API is running 🚀"}
 
 
 @app.post("/task")
