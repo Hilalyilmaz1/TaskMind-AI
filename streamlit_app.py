@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from datetime import datetime
 
-API_URL = "grand-reprieve-production-4e77.up.railway.app"
+API_URL = "https://grand-reprieve-production-4e77.up.railway.app"
 
 st.set_page_config(page_title="AI Task Assistant", layout="wide")
 
