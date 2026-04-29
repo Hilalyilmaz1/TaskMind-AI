@@ -16,3 +16,4 @@ python-jose
 python-multipart
 apscheduler
 streamlit
+requests
