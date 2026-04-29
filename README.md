@@ -5,10 +5,10 @@ AI-powered task management system with semantic search and intelligent daily pla
 > Plan your day with AI, not just a to-do list.
 
 🚀 Live Demo: (link buraya)
-📦 Backend API: (link)
+📦 Backend API: ([link](http://localhost:8000/docs))
 
 ## 🎬 Demo
-![Demo](demo.gif)
+![Demo](assests/Animation.gif)
 
 ## ✨ Features
 
@@ -27,6 +27,9 @@ AI-powered task management system with semantic search and intelligent daily pla
 - **Frontend:** Streamlit
 - **Notifications:** Telegram Bot API
 
+<img src="assets/telegram.jpeg/>" width="800"/>
+
+
 ## 🧠 How AI Works
 
 1. User creates tasks using natural language
@@ -43,6 +46,8 @@ cd taskmind-ai
 cp .env.example .env
 
 docker-compose up --build
+
+streamlit run streamlit_app.py
 
 ---
 
