@@ -10,7 +10,7 @@ AI-powered task management system with semantic search and intelligent daily pla
 ## 🎬 Demo
 
 <p align="center">
-  <img src="assets/demo.gif" width="800"/>
+  <img src="assets/Animation.gif" width="800"/>
 </p>
 
 ## ✨ Features
@@ -33,7 +33,7 @@ AI-powered task management system with semantic search and intelligent daily pla
 ## 📸 UI Preview
 
 <p align="center">
-  <img src="assets/ui.png" width="800"/>
+  <img src="assets/telegram.jpeg" width="800"/>
 </p>
 
 
