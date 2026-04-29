@@ -9,7 +9,8 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 if not TELEGRAM_TOKEN or not CHAT_ID:
-    raise ValueError("Telegram config missing!")
+    #raise ValueError("Telegram config missing!")
+    print("Telegram config missing! Notifications will not work.")
 
 def send_telegram(message:str):
     url=f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"

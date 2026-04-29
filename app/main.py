@@ -232,58 +232,103 @@ def search_tasks(
     ]
 
 #RAG ile arama
+#@app.get("/ask")
+#def ask_ai(
+ #   question: str,
+  #  user: user = Depends(get_current_user),
+   # db: Session = Depends(get_db)
+#):
+ #   results=search_similar(db,question,user.id)
+  #  
+   # if "yarın" in question.lower():
+    #    tomorrow=datetime.now()+timedelta(days=1)
+#
+ #       start=tomorrow.replace(hour=0,minute=0)
+  #      end=tomorrow.replace(hour=23,minute=59)
+#
+#        tasks=db.query(Task).filter(
+#            Task.due_date>=start,
+ #           Task.due_date<=end
+  #      ).all()
+#
+ #       context = "\n".join([task.text for task in tasks])
+#
+ #   else:
+  #      tasks=search_similar(db,question,user.id)    
+#
+ #       context = "\n".join([r[0] for r in tasks])
+
+  #  prompt = f"""
+
+   # Kullanıcı sorusu:
+    #{question}
+
+    #Bugünün tarihi:
+    #{datetime.now()}
+
+   # Kullanıcının görevleri:
+    #{context}
+
+    #Şunları yap:
+    #1. Görevleri önceliklendir
+   # 2. Saatlere göre günlük plan oluştur
+  #  3. Çakışma varsa belirt
+  #  4. Kısa ve net yaz
+#
+    #Format:
+    #- Öncelikli görevler
+    #- Günlük plan
+    #- Öneri
+    #"""
+
+    #response = llm.invoke(prompt)
+
+    #return {"answer": response}
+
 @app.get("/ask")
 def ask_ai(
     question: str,
     user: user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    results=search_similar(db,question,user.id)
-    
+    results = search_similar(db, question, user.id)
+
     if "yarın" in question.lower():
-        tomorrow=datetime.now()+timedelta(days=1)
+        tomorrow = datetime.now() + timedelta(days=1)
 
-        start=tomorrow.replace(hour=0,minute=0)
-        end=tomorrow.replace(hour=23,minute=59)
+        start = tomorrow.replace(hour=0, minute=0)
+        end = tomorrow.replace(hour=23, minute=59)
 
-        tasks=db.query(Task).filter(
-            Task.due_date>=start,
-            Task.due_date<=end
+        tasks = db.query(Task).filter(
+            Task.due_date >= start,
+            Task.due_date <= end
         ).all()
 
         context = "\n".join([task.text for task in tasks])
 
     else:
-        tasks=search_similar(db,question,user.id)    
+        tasks = search_similar(db, question, user.id)
+        context = "\n".join([r[0] for r in tasks]) if tasks else ""
 
-        context = "\n".join([r[0] for r in tasks])
+    # 🔥 LLM KALDIRILDI → DEMO MODE
+    response = f"""
+🧠 AI Plan (Demo Mode)
 
-    prompt = f"""
+📌 Öncelikli görevler:
+{context if context else "Görev bulunamadı"}
 
-    Kullanıcı sorusu:
-    {question}
+📅 Günlük plan:
+- Sabah: En önemli görevlerle başla
+- Öğleden sonra: Toplantı ve diğer görevler
+- Akşam: Gün değerlendirmesi
 
-    Bugünün tarihi:
-    {datetime.now()}
+💡 Öneri:
+Görevlerini erken saatlerde tamamlamaya odaklan.
+"""
 
-    Kullanıcının görevleri:
-    {context}
+    return {"answer": response}    
 
-    Şunları yap:
-    1. Görevleri önceliklendir
-    2. Saatlere göre günlük plan oluştur
-    3. Çakışma varsa belirt
-    4. Kısa ve net yaz
 
-    Format:
-    - Öncelikli görevler
-    - Günlük plan
-    - Öneri
-    """
-
-    response = llm.invoke(prompt)
-
-    return {"answer": response}
 
 
 @app.get("/calendar")

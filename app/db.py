@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@pgvector_db:5432/tasks")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:jQAlqtnylvFyavkCspsGelTLGDGorDDu@postgres.railway.internal:5432/railway")
 
 #engine, veritabanı bağlantısını yönetir. create_engine fonksiyonu, verilen DATABASE_URL ile bir engine oluşturur.
 engine = create_engine(

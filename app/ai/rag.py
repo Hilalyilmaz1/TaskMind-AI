@@ -17,7 +17,7 @@ def get_embedding(text):
 
 def get_vector_store():
     return PGVector(
-        connection_string="postgresql://user:password@pgvector_db:5432/tasks",
+        connection_string="postgresql://postgres:jQAlqtnylvFyavkCspsGelTLGDGorDDu@postgres.railway.internal:5432/railway",
         embedding_function=embeddings,
         collection_name="tasks"
     )
