@@ -76,7 +76,10 @@ def get_db():
     finally:
         db.close()
 
-app=FastAPI()
+app=FastAPI(title="TaskMind AI",
+    docs_url="/docs",
+    redoc_url="/redoc"
+    )
 
 def get_current_user(
         token: str = Depends(oauth2_scheme),
