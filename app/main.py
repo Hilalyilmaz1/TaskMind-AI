@@ -455,20 +455,18 @@ async def login(
     password: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    """
-    Login endpoint that accepts form-data or JSON
-    """
 
-    print("🔥 LOGIN REQUEST STARTED")
+    print("LOGIN START")
 
-    # Form-data yoksa JSON dene
+    # JSON fallback
     if not (email or username) or not password:
+
         try:
             body = await request.json()
-            print("📦 JSON BODY:", body)
+            print("BODY:", body)
 
         except Exception as e:
-            print("❌ JSON PARSE ERROR:", e)
+            print("JSON ERROR:", str(e))
             body = {}
 
         email = email or body.get("email")
@@ -477,18 +475,17 @@ async def login(
 
     login_value = email or username
 
-    print("📧 LOGIN VALUE:", login_value)
-    print("🔑 PASSWORD RECEIVED:", password)
+    print("LOGIN VALUE:", login_value)
 
     if not login_value or not password:
-        print("❌ Missing credentials")
+
+        print("MISSING CREDENTIALS")
 
         raise HTTPException(
             status_code=400,
             detail="email/username and password required"
         )
 
-    # 🔥 email veya username ile login
     db_user = db.query(user).filter(
         or_(
             user.email == login_value,
@@ -496,23 +493,21 @@ async def login(
         )
     ).first()
 
-    print("👤 DB USER:", db_user)
+    print("DB USER FOUND:", db_user is not None)
 
     if db_user:
-        print("✅ USER FOUND")
-        print("📧 USER EMAIL:", db_user.email)
-        print("🔒 HASH IN DB:", db_user.password)
 
-        password_check = verify_password(password, db_user.password)
+        try:
+            password_check = verify_password(password, db_user.password)
+            print("PASSWORD CHECK:", password_check)
 
-        print("🔍 PASSWORD CHECK:", password_check)
-
-    else:
-        print("❌ USER NOT FOUND")
+        except Exception as e:
+            print("VERIFY ERROR:", str(e))
+            raise e
 
     if not db_user or not verify_password(password, db_user.password):
 
-        print("❌ WRONG CREDENTIALS")
+        print("WRONG CREDENTIALS")
 
         raise HTTPException(
             status_code=401,
@@ -523,7 +518,7 @@ async def login(
         "user_id": db_user.id
     })
 
-    print("✅ LOGIN SUCCESS")
+    print("LOGIN SUCCESS")
 
     return {
         "access_token": access_token,
