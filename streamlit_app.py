@@ -55,31 +55,55 @@ def update_task_completion(completed, task_id):
 
 # ---------- LOGIN ----------
 if menu == "Login":
+
     st.subheader("🔏 Login")
 
     with st.form("login_form"):
+
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
+
         submitted = st.form_submit_button("Login")
 
         if submitted:
+
             try:
+
                 res = requests.post(
                     f"{API_URL}/login",
-                    data={"username": email, "password": password},
-                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                    data={
+                        "email": email,
+                        "password": password
+                    }
                 )
-                data = res.json()
-                if "access_token" in data:
+
+                # DEBUG
+                st.write("STATUS:", res.status_code)
+                st.write("RAW:", res.text)
+
+                if res.status_code == 200:
+
+                    data = res.json()
+
                     st.session_state.token = data["access_token"]
+
                     st.success("Login successful ✅")
+
                     st.rerun()
+
                 else:
-                    st.error(f"Login failed: {data.get('error', 'Unknown error')}")
-                    st.write("Sending:", email, password)
-                    st.write("Response:", res.text)
+
+                    try:
+                        error_data = res.json()
+                        error_msg = error_data.get("detail", res.text)
+                    except:
+                        error_msg = res.text
+
+                    st.error(f"Login failed: {error_msg}")
+
             except Exception as e:
-                st.error(f"Login error: {e}")
+
+                st.error(f"Connection error: {e}")
 
 # ---------- REGISTER ----------
 elif menu == "Register":

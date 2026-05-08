@@ -445,6 +445,8 @@ async def register(
 
 from fastapi.security import OAuth2PasswordRequestForm
 
+from sqlalchemy import or_
+
 @app.post("/login")
 async def login(
     request: Request,
@@ -454,30 +456,82 @@ async def login(
     db: Session = Depends(get_db)
 ):
     """
-    Login endpoint that accepts form-data or JSON with email/username and password
+    Login endpoint that accepts form-data or JSON
     """
+
+    print("🔥 LOGIN REQUEST STARTED")
+
+    # Form-data yoksa JSON dene
     if not (email or username) or not password:
         try:
             body = await request.json()
-        except Exception:
+            print("📦 JSON BODY:", body)
+
+        except Exception as e:
+            print("❌ JSON PARSE ERROR:", e)
             body = {}
+
         email = email or body.get("email")
         username = username or body.get("username")
         password = password or body.get("password")
 
-    login_email = email or username
+    login_value = email or username
 
-    if not login_email or not password:
-        raise HTTPException(status_code=400, detail="email/username and password required")
+    print("📧 LOGIN VALUE:", login_value)
+    print("🔑 PASSWORD RECEIVED:", password)
 
-    db_user = db.query(user).filter(user.email == login_email).first()
-    
+    if not login_value or not password:
+        print("❌ Missing credentials")
+
+        raise HTTPException(
+            status_code=400,
+            detail="email/username and password required"
+        )
+
+    # 🔥 email veya username ile login
+    db_user = db.query(user).filter(
+        or_(
+            user.email == login_value,
+            user.username == login_value
+        )
+    ).first()
+
+    print("👤 DB USER:", db_user)
+
+    if db_user:
+        print("✅ USER FOUND")
+        print("📧 USER EMAIL:", db_user.email)
+        print("🔒 HASH IN DB:", db_user.password)
+
+        password_check = verify_password(password, db_user.password)
+
+        print("🔍 PASSWORD CHECK:", password_check)
+
+    else:
+        print("❌ USER NOT FOUND")
+
     if not db_user or not verify_password(password, db_user.password):
-        raise HTTPException(status_code=401, detail="wrong credentials")
+
+        print("❌ WRONG CREDENTIALS")
+
+        raise HTTPException(
+            status_code=401,
+            detail="wrong credentials"
+        )
+
+    access_token = create_token({
+        "user_id": db_user.id
+    })
+
+    print("✅ LOGIN SUCCESS")
 
     return {
-        "access_token": create_token({"user_id": db_user.id}),
-        "token_type": "bearer"
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": db_user.id,
+            "email": db_user.email
+        }
     }
 
 @app.get("/tomorrow")
