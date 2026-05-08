@@ -25,6 +25,13 @@ from datetime import datetime, timedelta
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+from groq import Groq
+import os
+
+client = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
+)
+
 class TaskCreate(BaseModel):
     text: str
     priority: int = 3
@@ -297,43 +304,67 @@ def ask_ai(
     user: user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    results = search_similar(db, question, user.id)
+    try:
+        # 🔍 görevleri çek
+        if "yarın" in question.lower():
+            tomorrow = datetime.now() + timedelta(days=1)
 
-    if "yarın" in question.lower():
-        tomorrow = datetime.now() + timedelta(days=1)
+            start = tomorrow.replace(hour=0, minute=0)
+            end = tomorrow.replace(hour=23, minute=59)
 
-        start = tomorrow.replace(hour=0, minute=0)
-        end = tomorrow.replace(hour=23, minute=59)
+            tasks = db.query(Task).filter(
+                Task.user_id == user.id,
+                Task.due_date >= start,
+                Task.due_date <= end
+            ).all()
 
-        tasks = db.query(Task).filter(
-            Task.due_date >= start,
-            Task.due_date <= end
-        ).all()
+            context = "\n".join([task.text for task in tasks])
 
-        context = "\n".join([task.text for task in tasks])
+        else:
+            results = search_similar(db, question, user.id)
+            context = "\n".join([r[0] for r in results])
 
-    else:
-        tasks = search_similar(db, question, user.id)
-        context = "\n".join([r[0] for r in tasks]) if tasks else ""
+        # 🧠 prompt
+        prompt = f"""
+Kullanıcı sorusu:
+{question}
 
-    # 🔥 LLM KALDIRILDI → DEMO MODE
-    response = f"""
-🧠 AI Plan (Demo Mode)
+Bugünün tarihi:
+{datetime.now()}
 
-📌 Öncelikli görevler:
-{context if context else "Görev bulunamadı"}
+Kullanıcının görevleri:
+{context}
 
-📅 Günlük plan:
-- Sabah: En önemli görevlerle başla
-- Öğleden sonra: Toplantı ve diğer görevler
-- Akşam: Gün değerlendirmesi
+Şunları yap:
+1. Görevleri önceliklendir
+2. Saatlere göre günlük plan oluştur
+3. Çakışma varsa belirt
+4. Kısa ve net yaz
 
-💡 Öneri:
-Görevlerini erken saatlerde tamamlamaya odaklan.
+Format:
+- Öncelikli görevler
+- Günlük plan
+- Öneri
 """
 
-    return {"answer": response}    
+        # 🚀 GROQ çağrısı
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": "You are a helpful productivity assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5
+        )
 
+        answer = response.choices[0].message.content
+
+        return {"answer": answer}
+
+    except Exception as e:
+        return {
+            "answer": f"⚠️ AI temporarily unavailable.\n\nBasic task list:\n{context}"
+        }
 
 
 

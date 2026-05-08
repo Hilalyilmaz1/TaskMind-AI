@@ -76,6 +76,8 @@ if menu == "Login":
                     st.rerun()
                 else:
                     st.error(f"Login failed: {data.get('error', 'Unknown error')}")
+                    st.write("Sending:", email, password)
+                    st.write("Response:", res.text)
             except Exception as e:
                 st.error(f"Login error: {e}")
 
