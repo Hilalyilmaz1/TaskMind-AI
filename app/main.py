@@ -558,16 +558,17 @@ async def login(
     print("USER:", db_user)
 
     # ⚠️ 
-    if not db_user:
+    if not db_user or not verify_password(password, db_user.password):
 
-        raise HTTPException(
-            status_code=401,
-            detail="wrong credentials"
-        )
+     raise HTTPException(
+        status_code=401,
+        detail="wrong credentials"
+    )
 
     return {
-        "message": "LOGIN WORKS"
-    }
+    "access_token": create_token({"user_id": db_user.id}),
+    "token_type": "bearer"
+}
 
 @app.get("/tomorrow")
 def get_tomorrow_tasks(
