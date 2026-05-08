@@ -447,7 +447,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from sqlalchemy import or_
 
-@app.post("/login")
+"""@app.post("/login")
 async def login(
     request: Request,
     email: str = Form(None),
@@ -527,6 +527,46 @@ async def login(
             "id": db_user.id,
             "email": db_user.email
         }
+    }"""
+
+@app.post("/login")
+async def login(
+    request: Request,
+    email: str = Form(None),
+    username: str = Form(None),
+    password: str = Form(None),
+    db: Session = Depends(get_db)
+):
+
+    if not (email or username) or not password:
+
+        try:
+            body = await request.json()
+        except:
+            body = {}
+
+        email = email or body.get("email")
+        username = username or body.get("username")
+        password = password or body.get("password")
+
+    login_value = email or username
+
+    db_user = db.query(user).filter(
+        user.email == login_value
+    ).first()
+
+    print("USER:", db_user)
+
+    # ⚠️ verify_password KALDIRILDI
+    if not db_user:
+
+        raise HTTPException(
+            status_code=401,
+            detail="wrong credentials"
+        )
+
+    return {
+        "message": "LOGIN WORKS"
     }
 
 @app.get("/tomorrow")

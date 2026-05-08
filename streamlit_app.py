@@ -68,7 +68,6 @@ if menu == "Login":
         if submitted:
 
             try:
-
                 res = requests.post(
                     f"{API_URL}/login",
                     data={
