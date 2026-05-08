@@ -557,7 +557,7 @@ async def login(
 
     print("USER:", db_user)
 
-    # ⚠️ verify_password KALDIRILDI
+    # ⚠️ 
     if not db_user:
 
         raise HTTPException(
