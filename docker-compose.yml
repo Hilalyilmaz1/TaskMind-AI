@@ -1,7 +1,7 @@
 services:
   pgvector_db:
-    image: ankane/pgvector:v0.5.1 # veya kullandığınız imaj
-    container_name: pgvector_db
+    image: ankane/pgvector:v0.5.1
+    container_name: taskmind_postgres
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -16,26 +16,37 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: .
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: taskmind_api
     depends_on:
       pgvector_db:
         condition: service_healthy
-    container_name: ai_app
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql://user:password@pgvector_db:5432/tasks
       OLLAMA_URL: http://host.docker.internal:11434
-    
+      PORT: 8000
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: taskmind_web
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+    environment:
+      TASKMIND_API_URL: http://api:8000
+      PORT: 8501
 
 volumes:
   pgdata:
-

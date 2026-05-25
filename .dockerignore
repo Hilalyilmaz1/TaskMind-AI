@@ -8,6 +8,7 @@ env/
 venv/
 .git
 .gitignore
+.env
 Dockerfile
 docker-compose.yml
 README.md

@@ -1,22 +1,2 @@
-fastapi
-uvicorn
-psycopg2-binary
-sqlalchemy
-langchain
-openai
-pgvector
-python-dotenv
-langchain-openai
-langchain-community
-langchain
-ollama
-langchain-ollama
-passlib[bcrypt]
-python-jose
-python-multipart
-apscheduler
-streamlit
-requests
-groq
-passlib[bcrypt]
-bcrypt==4.0.1
+-r requirements-api.txt
+-r requirements-web.txt

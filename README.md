@@ -1,72 +1,101 @@
-# 🤖 TaskMind AI
+# TaskMind AI
 
-AI-powered task management system with semantic search and intelligent daily planning.
+AI assisted task management app with FastAPI, PostgreSQL + pgvector, Streamlit, and planning support from LLM workflows.
 
-> Plan your day with AI, not just a to-do list.
+## Architecture
 
-🚀 Live Demo: (link buraya)
-📦 Backend API: ([link](http://localhost:8000/docs))
+```text
+TaskMind AI
+├─ web        Streamlit frontend
+├─ api        FastAPI backend
+└─ postgres   PostgreSQL with pgvector
+```
 
-## 🎬 Demo
+For production, deploy all three services inside one Railway project:
 
-<p align="center">
-  <img src="assets/Animation.gif" width="800"/>
-</p>
+- `web` is public and serves the Streamlit UI.
+- `api` can stay private and is called by `web` over Railway private networking.
+- `postgres` is attached to the API service through `DATABASE_URL`.
 
-## ✨ Features
+## Local Development
 
-- 🧠 AI-powered task planning (RAG-based)
-- 🔍 Semantic search with vector embeddings (pgvector)
-- 📅 Smart calendar with task completion tracking
-- 🔐 JWT Authentication
-- 🔔 Real-time Telegram notifications
-- ⚡ Natural language task creation (e.g., “yarın 10’da meeting”)
-
-## 🏗️ Architecture
-
-- **Backend:** FastAPI
-- **Database:** PostgreSQL + pgvector
-- **AI Layer:** RAG pipeline (embeddings + LLM)
-- **Frontend:** Streamlit
-- **Notifications:** Telegram Bot API
-- 
-## 📸 UI Preview
-
-<p align="center">
-  <img src="assets/telegram.jpeg" width="800"/>
-</p>
-
-
-## 🧠 How AI Works
-
-1. User creates tasks using natural language
-2. Tasks are converted into embeddings
-3. Similar tasks are retrieved via vector search
-4. LLM generates contextual daily plans using RAG
-
-## ⚙️ Setup
+Create a local env file:
 
 ```bash
-git clone https://github.com/username/taskmind-ai
-cd taskmind-ai
-
 cp .env.example .env
+```
 
-docker-compose up --build
+Run the full stack with Docker:
 
-streamlit run streamlit_app.py
+```bash
+docker compose up --build
+```
 
----
+Open:
 
-## 📌 Example Usage
+- Streamlit web: http://localhost:8501
+- FastAPI docs: http://localhost:8000/docs
 
-```md
-## 📌 Example
+## Railway Deployment
 
-**Input:**
-> yarın ne yapacağım?
+Create one Railway project with these services.
 
-**Output:**
-- Öncelikli görevler
-- Günlük plan
-- Öneriler
+### 1. Database
+
+Add a PostgreSQL service with pgvector support. Set the API service `DATABASE_URL` to the database connection URL Railway provides.
+
+### 2. API Service
+
+Create a service from this repository and configure:
+
+```text
+Dockerfile path: Dockerfile.api
+Public domain: optional
+```
+
+Required variables:
+
+```env
+PORT=8000
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+SECRET_KEY=replace-with-a-long-random-secret
+GROQ_API_KEY=your-groq-key
+OPENAI_API_KEY=optional
+TELEGRAM_TOKEN=optional
+CHAT_ID=optional
+```
+
+Set `PORT=8000` on the API service so the Streamlit service can call a stable private address.
+
+### 3. Web Service
+
+Create another service from the same repository and configure:
+
+```text
+Dockerfile path: Dockerfile.web
+Public domain: enabled
+```
+
+Set the frontend API URL to the internal Railway service address:
+
+```env
+TASKMIND_API_URL=http://api.railway.internal:8000
+```
+
+If your Railway API service has a different service name, replace `api` with that name.
+
+## Key Features
+
+- JWT authentication
+- Task creation with due dates and priorities
+- Calendar view
+- AI question answering over tasks
+- Tomorrow plan generation
+- Telegram reminder scheduler
+
+## Important Notes
+
+- Keep frontend and backend in the same Railway project/environment to use private networking.
+- Use the Streamlit service as the public entry point.
+- Avoid committing `.env` or real credentials.
+- Use a strong `SECRET_KEY` in production.
