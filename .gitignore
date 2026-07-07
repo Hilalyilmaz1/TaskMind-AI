@@ -10,6 +10,7 @@ venv/
 
 # Environment variables
 .env
+.env.backup
 
 # OS
 .DS_Store
@@ -19,3 +20,4 @@ venv/
 
 # Docker
 *.sqlite3
+
