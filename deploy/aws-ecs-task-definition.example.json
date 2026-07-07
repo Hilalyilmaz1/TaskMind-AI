@@ -1,0 +1,101 @@
+{
+  "family": "taskmind-ai",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/taskmind-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8000"
+        },
+        {
+          "name": "TASKMIND_ENABLE_OLLAMA",
+          "value": "false"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "taskmind/DATABASE_URL"
+        },
+        {
+          "name": "SECRET_KEY",
+          "valueFrom": "taskmind/SECRET_KEY"
+        },
+        {
+          "name": "GROQ_API_KEY",
+          "valueFrom": "taskmind/GROQ_API_KEY"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "taskmind/OPENAI_API_KEY"
+        },
+        {
+          "name": "TELEGRAM_TOKEN",
+          "valueFrom": "taskmind/TELEGRAM_TOKEN"
+        },
+        {
+          "name": "CHAT_ID",
+          "valueFrom": "taskmind/CHAT_ID"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/taskmind-ai",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "api"
+        }
+      }
+    },
+    {
+      "name": "web",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/taskmind-web:latest",
+      "essential": true,
+      "dependsOn": [
+        {
+          "containerName": "api",
+          "condition": "START"
+        }
+      ],
+      "portMappings": [
+        {
+          "containerPort": 8501,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8501"
+        },
+        {
+          "name": "TASKMIND_API_URL",
+          "value": "http://127.0.0.1:8000"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/taskmind-ai",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "web"
+        }
+      }
+    }
+  ]
+}

@@ -1,32 +1,16 @@
-from langchain_core.prompts import PromptTemplate
 import os
-from langchain_ollama import OllamaLLM
+import json
 from datetime import datetime, timedelta
 import re
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
-
-llm = OllamaLLM(
-    model="llama3",
-    base_url=OLLAMA_URL
-)
-
-prompt=PromptTemplate(
-    input_variables=["text"],
-    template="""
-Extract structured task info from this text:
-{text}
-
-Return JSON with:
--task
--datetime
-"""
-)
-
+from app.ai.llm import llm
 
 
 def extract_task(text):
-    prompt = f"""
+    if llm is None or llm.provider is None:
+        return {}
+
+    extraction_prompt = f"""
     Extract task and date from text.
 
     Return ONLY JSON.
@@ -35,37 +19,45 @@ def extract_task(text):
        {{"task": "meeting", "date": "2026-04-25"}}
     "{text}"
 
-    JSON olarak döndür:
+    Return JSON:
     {{
       "task": "...",
-      "date": "YYYY-MM-DD" veya null
+      "date": "YYYY-MM-DD" or null
     }}
     """
 
-    response = llm.invoke(prompt)
+    try:
+        res = llm.invoke(extraction_prompt)
+        cleaned = res.strip()
+        if "```json" in cleaned:
+            cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+        elif "```" in cleaned:
+            cleaned = cleaned.split("```")[1].split("```")[0].strip()
+        
+        return json.loads(cleaned)
+    except Exception as e:
+        print(f"Error in extraction parsing: {e}", flush=True)
+        return {}
 
-    return response
 
 def parse_datetime(text):
     now = datetime.now()
+    lower_text = text.lower()
 
-    # tarih
-    if "yarın" in text:
+    if "yarin" in lower_text or "yarın" in lower_text or "tomorrow" in lower_text:
         date = now + timedelta(days=1)
-    elif "bugün" in text:
+    elif "bugun" in lower_text or "bugün" in lower_text or "today" in lower_text:
         date = now
-    elif "haftaya" in text:
+    elif "haftaya" in lower_text or "next week" in lower_text:
         date = now + timedelta(days=7)
     else:
         date = None
 
-    # saat (regex)
-    hour_match = re.search(r'(\d{1,2})(:(\d{2}))?', text)
+    hour_match = re.search(r"(\d{1,2})(?::(\d{2}))?", text)
 
     if date and hour_match:
-        hour=int(hour_match.group(1))
-        minute=int(hour_match.group(3)) if hour_match.group(3) else 0
-
-        return date.replace(hour=hour, minute=minute, second=0)
+        hour = int(hour_match.group(1))
+        minute = int(hour_match.group(2)) if hour_match.group(2) else 0
+        return date.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
     return None

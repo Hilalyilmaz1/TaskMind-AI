@@ -8,7 +8,7 @@ import streamlit as st
 
 API_URL = os.getenv(
     "TASKMIND_API_URL",
-    "https://grand-reprieve-production-4e77.up.railway.app",
+    "http://localhost:8000",
 ).rstrip("/")
 
 PRIORITY_LABELS = {
@@ -32,45 +32,51 @@ def inject_theme() -> None:
     st.markdown(
         """
         <style>
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
             :root {
-                --tm-bg: #f6f7f9;
-                --tm-panel: #ffffff;
-                --tm-border: #d9dee7;
-                --tm-text: #1d2433;
-                --tm-muted: #697386;
-                --tm-primary: #2563eb;
-                --tm-primary-soft: #dbeafe;
-                --tm-success: #168a4a;
-                --tm-warning: #b7791f;
-                --tm-danger: #c2410c;
+                --tm-bg: #0b0f19;
+                --tm-panel: #131926;
+                --tm-border: #1f293d;
+                --tm-text: #f8fafc;
+                --tm-muted: #94a3b8;
+                --tm-primary: #6366f1;
+                --tm-primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+                --tm-success: #10b981;
+                --tm-success-bg: rgba(16, 185, 129, 0.1);
+                --tm-warning: #f59e0b;
+                --tm-warning-bg: rgba(245, 158, 11, 0.1);
+                --tm-danger: #ef4444;
+                --tm-danger-bg: rgba(239, 68, 68, 0.1);
             }
 
             .stApp {
-                background: var(--tm-bg);
-                color: var(--tm-text);
+                background-color: var(--tm-bg) !important;
+                background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                                  radial-gradient(at 50% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+                                  radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.06) 0px, transparent 50%) !important;
+                color: var(--tm-text) !important;
+                font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
             }
 
             [data-testid="stSidebar"] {
-                background: #111827;
-                border-right: 1px solid #0f172a;
+                background-color: #070a12 !important;
+                border-right: 1px solid var(--tm-border) !important;
             }
 
             [data-testid="stSidebar"] * {
-                color: #f9fafb;
-            }
-
-            [data-testid="stSidebar"] [data-baseweb="select"] * {
-                color: #111827;
+                color: var(--tm-text) !important;
             }
 
             .main .block-container {
                 max-width: 1240px;
-                padding-top: 2rem;
-                padding-bottom: 3rem;
+                padding-top: 3rem;
+                padding-bottom: 4rem;
             }
 
             h1, h2, h3 {
-                letter-spacing: 0;
+                font-family: 'Outfit', sans-serif !important;
+                letter-spacing: -0.02em !important;
             }
 
             .tm-page-header {
@@ -78,60 +84,77 @@ def inject_theme() -> None:
                 justify-content: space-between;
                 gap: 1rem;
                 align-items: flex-start;
-                padding: 1.25rem 0 1rem;
+                padding: 1.5rem 0 1.25rem;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                margin-bottom: 2rem;
             }
 
             .tm-eyebrow {
-                color: var(--tm-muted);
-                font-size: 0.82rem;
-                font-weight: 700;
-                letter-spacing: 0.06em;
+                color: var(--tm-primary);
+                font-size: 0.8rem;
+                font-weight: 800;
+                letter-spacing: 0.1em;
                 text-transform: uppercase;
-                margin-bottom: 0.25rem;
+                margin-bottom: 0.35rem;
             }
 
             .tm-title {
                 color: var(--tm-text);
-                font-size: 2.05rem;
-                font-weight: 760;
+                font-size: 2.2rem;
+                font-weight: 800;
                 line-height: 1.1;
                 margin: 0;
+                background: linear-gradient(to right, #ffffff, #c7d2fe);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
             }
 
             .tm-subtitle {
                 color: var(--tm-muted);
-                font-size: 1rem;
-                margin-top: 0.45rem;
+                font-size: 1.05rem;
+                margin-top: 0.5rem;
                 max-width: 720px;
             }
 
             .tm-card {
-                background: var(--tm-panel);
-                border: 1px solid var(--tm-border);
-                border-radius: 8px;
-                padding: 1rem;
-                box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05);
+                background: rgba(19, 25, 38, 0.75) !important;
+                backdrop-filter: blur(12px) !important;
+                border: 1px solid var(--tm-border) !important;
+                border-radius: 16px !important;
+                padding: 1.5rem !important;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+                transition: transform 0.2s ease, border-color 0.2s ease;
+            }
+            .tm-card:hover {
+                border-color: rgba(99, 102, 241, 0.4) !important;
             }
 
             .tm-task-row {
-                background: var(--tm-panel);
-                border: 1px solid var(--tm-border);
-                border-radius: 8px;
-                padding: 0.9rem 1rem;
-                margin-bottom: 0.65rem;
+                background: rgba(22, 30, 47, 0.65) !important;
+                border: 1px solid var(--tm-border) !important;
+                border-radius: 12px !important;
+                padding: 1.2rem 1.4rem !important;
+                margin-bottom: 0.8rem !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
-
+            .tm-task-row:hover {
+                background: rgba(28, 38, 60, 0.8) !important;
+                transform: translateY(-2px) !important;
+                border-color: var(--tm-primary) !important;
+                box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15) !important;
+            }
             .tm-task-row.done {
-                background: #f8fafc;
+                background: rgba(17, 24, 39, 0.35) !important;
+                border-color: rgba(31, 41, 61, 0.4) !important;
+                opacity: 0.65;
             }
 
             .tm-task-title {
                 color: var(--tm-text);
-                font-size: 1rem;
-                font-weight: 700;
-                margin-bottom: 0.3rem;
+                font-size: 1.05rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
             }
-
             .tm-task-row.done .tm-task-title {
                 color: var(--tm-muted);
                 text-decoration: line-through;
@@ -139,62 +162,84 @@ def inject_theme() -> None:
 
             .tm-meta {
                 color: var(--tm-muted);
-                font-size: 0.86rem;
+                font-size: 0.85rem;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 0.75rem;
             }
 
             .tm-chip {
                 display: inline-flex;
                 align-items: center;
-                border-radius: 999px;
+                border-radius: 6px;
                 border: 1px solid var(--tm-border);
-                background: #f8fafc;
+                background: rgba(30, 41, 59, 0.4);
                 color: var(--tm-text);
-                font-size: 0.78rem;
+                font-size: 0.72rem;
                 font-weight: 700;
                 line-height: 1;
-                padding: 0.35rem 0.55rem;
+                padding: 0.3rem 0.55rem;
                 white-space: nowrap;
             }
-
             .tm-chip.high {
-                border-color: #fed7aa;
-                background: #fff7ed;
+                border-color: rgba(239, 68, 68, 0.25);
+                background: var(--tm-danger-bg);
                 color: var(--tm-danger);
             }
-
             .tm-chip.done {
-                border-color: #bbf7d0;
-                background: #f0fdf4;
+                border-color: rgba(16, 185, 129, 0.25);
+                background: var(--tm-success-bg);
                 color: var(--tm-success);
             }
 
             .tm-empty {
                 border: 1px dashed var(--tm-border);
-                border-radius: 8px;
-                padding: 2rem;
+                border-radius: 12px;
+                padding: 2.5rem;
                 text-align: center;
                 color: var(--tm-muted);
-                background: rgba(255, 255, 255, 0.65);
+                background: rgba(19, 25, 38, 0.4);
             }
 
             div[data-testid="stMetric"] {
-                background: var(--tm-panel);
-                border: 1px solid var(--tm-border);
-                border-radius: 8px;
-                padding: 0.85rem 1rem;
+                background: rgba(19, 25, 38, 0.7) !important;
+                border: 1px solid var(--tm-border) !important;
+                border-radius: 14px !important;
+                padding: 1rem 1.25rem !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+            }
+            div[data-testid="stMetric"] label {
+                font-family: 'Outfit', sans-serif !important;
+                font-size: 0.8rem !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.05em !important;
+                color: var(--tm-muted) !important;
             }
 
             div[data-testid="stForm"] {
-                background: var(--tm-panel);
-                border: 1px solid var(--tm-border);
-                border-radius: 8px;
-                padding: 1rem;
+                background: rgba(19, 25, 38, 0.7) !important;
+                border: 1px solid var(--tm-border) !important;
+                border-radius: 16px !important;
+                padding: 1.5rem !important;
+                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15) !important;
             }
 
             .stButton > button,
             .stFormSubmitButton > button {
-                border-radius: 6px;
-                font-weight: 700;
+                background: var(--tm-primary-gradient) !important;
+                color: #ffffff !important;
+                border: none !important;
+                border-radius: 8px !important;
+                font-weight: 700 !important;
+                padding: 0.5rem 1.5rem !important;
+                transition: all 0.25s ease !important;
+                box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25) !important;
+            }
+            .stButton > button:hover,
+            .stFormSubmitButton > button:hover {
+                transform: translateY(-1px) !important;
+                box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35) !important;
             }
         </style>
         """,

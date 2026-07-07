@@ -1,36 +1,26 @@
 from fastapi import FastAPI, Depends, Header, Query, Request, Form, HTTPException
-from app.ai.extraction import extract_task
-from app.ai.time_parser import parse_datetime
-from app.models import Base, Task, TaskPydantic
-from app.db import engine
-from sqlalchemy.orm import Session
-from app.db import get_db
-import numpy as np
-from app.ai.rag import get_embedding
-from sqlalchemy import text
-import time
-from app.db import SessionLocal
-from app.ai.rag import search_similar
-from app.ai.extraction import llm   # ollama llm
-from app.models import user
-from app.auth import hash_password, verify_password, create_token
-from jose import jwt
-from app.auth import SECRET_KEY, ALGORITHM
-from app.ai.agent import prioritize_task
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Body
 from pydantic import BaseModel
-from app.scheduler import scheduler, start_scheduler
+from sqlalchemy.orm import Session
+from sqlalchemy import text, or_
+from jose import jwt
 from datetime import datetime, timedelta
+import os
+import time
+
+# Custom app modules
+from app.ai.extraction import extract_task
+from app.ai.time_parser import parse_datetime
+from app.models import Base, Task, TaskPydantic, user
+from app.db import engine, SessionLocal, get_db
+from app.auth import hash_password, verify_password, create_token, SECRET_KEY, ALGORITHM
+from app.ai.agent import prioritize_task
+from app.scheduler import scheduler, start_scheduler
+from app.ai.llm import llm
+from app.ai.rag import search_similar
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-from groq import Groq
-import os
-
-client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
-)
 
 class TaskCreate(BaseModel):
     text: str
@@ -41,61 +31,33 @@ class TaskUpdate(BaseModel):
     completed: bool
 
 
-# engine tanımlandıktan hemen sonra, create_all'dan önce:
-with engine.connect() as conn:
-    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    conn.commit()
-
-    result = conn.execute(text("SELECT to_regclass('public.tasks')")).scalar()
-    if result:
-        try:
-            conn.execute(text("ALTER TABLE tasks ALTER COLUMN embedding TYPE vector(768)"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 3"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS date TIMESTAMP NULL"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP NULL"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed INTEGER DEFAULT 0"))
-            conn.commit()
-        except Exception:
-            pass
-
-Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-app=FastAPI(title="TaskMind AI",
+app = FastAPI(
+    title="TaskMind AI",
     docs_url="/docs",
     redoc_url="/redoc"
-    )
+)
+
 
 def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        db:Session=Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    payload=jwt.decode(token,SECRET_KEY, algorithms=[ALGORITHM])
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token credentials")
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Could not validate credentials"
+        )
 
-    db_user=db.query(user).filter(user.id==payload["user_id"]).first()
+    db_user = db.query(user).filter(user.id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=401, detail="User not found")
     return db_user
+
 
 @app.get("/")
 def root():
@@ -112,7 +74,6 @@ async def create_task(
     user: user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
     if task_data is not None:
         text = task_data.text
         priority = task_data.priority
@@ -153,17 +114,18 @@ async def create_task(
 
     date = parse_datetime(text)
     try:
+        from app.ai.llm import get_embedding
         embedding = [float(x) for x in get_embedding(text)]
     except Exception as e:
         print(f"Embedding error: {e}", flush=True)
-        embedding = [0.0] * 768  # dummy embedding
+        embedding = [0.0] * 768  # dummy embedding fallback
 
     if task_due_date is None:
         task_due_date = parse_datetime(text)
 
     print(f"DEBUG: Final priority={priority}, due_date={task_due_date}", flush=True)
 
-    task = Task(
+    task_obj = Task(
         text=text,
         date=date,
         priority=priority,
@@ -173,17 +135,17 @@ async def create_task(
         due_date=task_due_date
     )
 
-    db.add(task)
+    db.add(task_obj)
     db.commit()
-    db.refresh(task)
+    db.refresh(task_obj)
 
     return {
         "message": "Task created",
         "task": {
-            "id": task.id,
-            "text": task.text,
-            "priority": task.priority,
-            "due_date": str(task.due_date) if task.due_date else None,
+            "id": task_obj.id,
+            "text": task_obj.text,
+            "priority": task_obj.priority,
+            "due_date": str(task_obj.due_date) if task_obj.due_date else None,
         }
     }
 
@@ -195,20 +157,19 @@ def update_task(
     user: user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    task = db.query(Task).filter(
+    task_obj = db.query(Task).filter(
         Task.id == task_id,
         Task.user_id == user.id
     ).first()
 
-    if not task:
+    if not task_obj:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    task.completed = request.completed  # 🔥 direkt bool
+    task_obj.completed = request.completed
     db.commit()
-    db.refresh(task)
+    db.refresh(task_obj)
 
-    return {"message": "Task updated", "completed": task.completed}
-    
+    return {"message": "Task updated", "completed": task_obj.completed}
 
 
 @app.get("/tasks")
@@ -216,16 +177,17 @@ def get_tasks(user: user = Depends(get_current_user), db: Session = Depends(get_
     results = db.query(Task).filter(Task.user_id == user.id).all()
     return [TaskPydantic.model_validate(task) for task in results]
 
+
 @app.get("/search")
 def search_tasks(
     query: str = "",
     user: user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
     if not query:
         results = db.query(Task).filter(Task.user_id == user.id).all()
     else:
+        from app.ai.llm import get_embedding
         query_embedding = [float(x) for x in get_embedding(query)]
 
         results = db.query(Task).filter(
@@ -244,59 +206,6 @@ def search_tasks(
         for r in results
     ]
 
-#RAG ile arama
-#@app.get("/ask")
-#def ask_ai(
- #   question: str,
-  #  user: user = Depends(get_current_user),
-   # db: Session = Depends(get_db)
-#):
- #   results=search_similar(db,question,user.id)
-  #  
-   # if "yarın" in question.lower():
-    #    tomorrow=datetime.now()+timedelta(days=1)
-#
- #       start=tomorrow.replace(hour=0,minute=0)
-  #      end=tomorrow.replace(hour=23,minute=59)
-#
-#        tasks=db.query(Task).filter(
-#            Task.due_date>=start,
- #           Task.due_date<=end
-  #      ).all()
-#
- #       context = "\n".join([task.text for task in tasks])
-#
- #   else:
-  #      tasks=search_similar(db,question,user.id)    
-#
- #       context = "\n".join([r[0] for r in tasks])
-
-  #  prompt = f"""
-
-   # Kullanıcı sorusu:
-    #{question}
-
-    #Bugünün tarihi:
-    #{datetime.now()}
-
-   # Kullanıcının görevleri:
-    #{context}
-
-    #Şunları yap:
-    #1. Görevleri önceliklendir
-   # 2. Saatlere göre günlük plan oluştur
-  #  3. Çakışma varsa belirt
-  #  4. Kısa ve net yaz
-#
-    #Format:
-    #- Öncelikli görevler
-    #- Günlük plan
-    #- Öneri
-    #"""
-
-    #response = llm.invoke(prompt)
-
-    #return {"answer": response}
 
 @app.get("/ask")
 def ask_ai(
@@ -304,13 +213,13 @@ def ask_ai(
     user: user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    context = ""
     try:
-        # 🔍 görevleri çek
+        # 🔍 Fetch Tasks
         if "yarın" in question.lower():
             tomorrow = datetime.now() + timedelta(days=1)
-
-            start = tomorrow.replace(hour=0, minute=0)
-            end = tomorrow.replace(hour=23, minute=59)
+            start = tomorrow.replace(hour=0, minute=0, second=0)
+            end = tomorrow.replace(hour=23, minute=59, second=59)
 
             tasks = db.query(Task).filter(
                 Task.user_id == user.id,
@@ -319,12 +228,10 @@ def ask_ai(
             ).all()
 
             context = "\n".join([task.text for task in tasks])
-
         else:
             results = search_similar(db, question, user.id)
             context = "\n".join([r[0] for r in results])
 
-        # 🧠 prompt
         prompt = f"""
 Kullanıcı sorusu:
 {question}
@@ -347,32 +254,27 @@ Format:
 - Öneri
 """
 
-        # 🚀 GROQ çağrısı
-        response = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[
-                {"role": "system", "content": "You are a helpful productivity assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.5
-        )
-
-        answer = response.choices[0].message.content
+        # Call the unified LLM wrapper
+        if llm and llm.provider:
+            answer = llm.invoke(prompt)
+        else:
+            answer = f"⚠️ AI model is currently offline/not configured.\n\nHere are your relevant tasks:\n{context}"
 
         return {"answer": answer}
 
     except Exception as e:
+        print(f"Error in ask_ai: {e}", flush=True)
         return {
-            "answer": f"⚠️ AI temporarily unavailable.\n\nBasic task list:\n{context}"
+            "answer": f"⚠️ AI error occurred.\n\nRelevant tasks found:\n{context}"
         }
-
 
 
 @app.get("/calendar")
 def get_day(
-    day:str,
-    user:user = Depends(get_current_user),
-    db:Session=Depends(get_db)):
+    day: str,
+    user: user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     normalized_day = day.strip().lower()
     if normalized_day in ["yarın", "yarin"]:
         target_date = (datetime.now() + timedelta(days=1)).date()
@@ -388,12 +290,12 @@ def get_day(
                 detail="Invalid day format. Use YYYY-MM-DD, DD.MM.YYYY, or 'yarın'."
             )
 
-    tasks=db.query(Task).filter(
-        Task.user_id==user.id,
+    tasks = db.query(Task).filter(
+        Task.user_id == user.id,
         Task.due_date.isnot(None)
     ).all()
     
-    result=[
+    result = [
         {
             "id": t.id,
             "text": t.text,
@@ -402,9 +304,10 @@ def get_day(
             "completed": t.completed
         }
         for t in tasks
-        if t.due_date.date()==target_date
+        if t.due_date.date() == target_date
     ]
     return result
+
 
 @app.post("/register")
 async def register(
@@ -443,91 +346,6 @@ async def register(
         db.rollback()
         return {"error": f"registration failed: {str(e)}"}
 
-from fastapi.security import OAuth2PasswordRequestForm
-
-from sqlalchemy import or_
-
-"""@app.post("/login")
-async def login(
-    request: Request,
-    email: str = Form(None),
-    username: str = Form(None),
-    password: str = Form(None),
-    db: Session = Depends(get_db)
-):
-
-    print("LOGIN START")
-
-    # JSON fallback
-    if not (email or username) or not password:
-
-        try:
-            body = await request.json()
-            print("BODY:", body)
-
-        except Exception as e:
-            print("JSON ERROR:", str(e))
-            body = {}
-
-        email = email or body.get("email")
-        username = username or body.get("username")
-        password = password or body.get("password")
-
-    login_value = email or username
-
-    print("LOGIN VALUE:", login_value)
-
-    if not login_value or not password:
-
-        print("MISSING CREDENTIALS")
-
-        raise HTTPException(
-            status_code=400,
-            detail="email/username and password required"
-        )
-
-    db_user = db.query(user).filter(
-        or_(
-            user.email == login_value,
-            user.username == login_value
-        )
-    ).first()
-
-    print("DB USER FOUND:", db_user is not None)
-
-    if db_user:
-
-        try:
-            password_check = verify_password(password, db_user.password)
-            print("PASSWORD CHECK:", password_check)
-
-        except Exception as e:
-            print("VERIFY ERROR:", str(e))
-            raise e
-
-    if not db_user or not verify_password(password, db_user.password):
-
-        print("WRONG CREDENTIALS")
-
-        raise HTTPException(
-            status_code=401,
-            detail="wrong credentials"
-        )
-
-    access_token = create_token({
-        "user_id": db_user.id
-    })
-
-    print("LOGIN SUCCESS")
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": db_user.id,
-            "email": db_user.email
-        }
-    }"""
 
 @app.post("/login")
 async def login(
@@ -537,12 +355,10 @@ async def login(
     password: str = Form(None),
     db: Session = Depends(get_db)
 ):
-
     if not (email or username) or not password:
-
         try:
             body = await request.json()
-        except:
+        except Exception:
             body = {}
 
         email = email or body.get("email")
@@ -555,59 +371,58 @@ async def login(
         user.email == login_value
     ).first()
 
-    print("USER:", db_user)
-
-    # ⚠️ 
     if not db_user or not verify_password(password, db_user.password):
-
-     raise HTTPException(
-        status_code=401,
-        detail="wrong credentials"
-    )
+        raise HTTPException(
+            status_code=401,
+            detail="wrong credentials"
+        )
 
     return {
-    "access_token": create_token({"user_id": db_user.id}),
-    "token_type": "bearer"
-}
+        "access_token": create_token({"user_id": db_user.id}),
+        "token_type": "bearer"
+    }
+
 
 @app.get("/tomorrow")
 def get_tomorrow_tasks(
-    token:str=Depends(oauth2_scheme),
-    db:Session=Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    tomorrow=datetime.now()+timedelta(days=1)
+    tomorrow = datetime.now() + timedelta(days=1)
 
-    start=tomorrow.replace(hour=0,minute=0,second=0)
-    end=tomorrow.replace(hour=23,minute=59,second=59)
+    start = tomorrow.replace(hour=0, minute=0, second=0)
+    end = tomorrow.replace(hour=23, minute=59, second=59)
 
-    tasks=db.query(Task).filter(
-        Task.due_date>=start,
-        Task.due_date<=end
+    tasks = db.query(Task).filter(
+        Task.due_date >= start,
+        Task.due_date <= end
     ).all()
 
     return tasks
 
+
 @app.get("/plan")
 def plan_day(
     user: user = Depends(get_current_user),
-    db:Session=Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    tomorrow=datetime.now()+timedelta(days=1)
+    tomorrow = datetime.now() + timedelta(days=1)
 
-    start=tomorrow.replace(hour=0,minute=0)
-    end=tomorrow.replace(hour=23,minute=59)
+    start = tomorrow.replace(hour=0, minute=0)
+    end = tomorrow.replace(hour=23, minute=59)
 
-    tasks=db.query(Task).filter(
-        Task.due_date>=start,
-        Task.due_date<=end,
+    tasks = db.query(Task).filter(
+        Task.user_id == user.id,
+        Task.due_date >= start,
+        Task.due_date <= end,
     ).order_by(Task.priority.asc()).all()
 
-    context="\n".join([
-        f"{t.text}(priority{t.priority})"
+    context = "\n".join([
+        f"{t.text} (priority {t.priority})"
         for t in tasks
     ])
 
-    prompt=f"""
+    prompt = f"""
     Bu görevleri yarına planla:
     {context}
 
@@ -621,25 +436,75 @@ def plan_day(
     - Öncelikli görevler
     - Günlük plan
     - Öneri
-
     """
 
     try:
-        response=llm.invoke(prompt)
-        return{"plan":response}
+        if llm and llm.provider:
+            response = llm.invoke(prompt)
+            return {"plan": response}
+        else:
+            return {"plan": f"Plan oluşturulamadı (AI devredışı). Görevleriniz:\n{context}"}
     except Exception as e:
         print(f"LLM error: {e}", flush=True)
-        return{"plan": f"Plan oluşturulamadı: {str(e)}. Görevler: {context}"}
+        return {"plan": f"Plan oluşturulamadı: {str(e)}. Görevler: {context}"}
 
 
 @app.on_event("startup")
 def startup_event():
-    print("🚀 Scheduler başlatılıyor...")
+    print("🚀 Database initialization...", flush=True)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+
+            result = conn.execute(text("SELECT to_regclass('public.tasks')")).scalar()
+            if result:
+                try:
+                    conn.execute(text("ALTER TABLE tasks ALTER COLUMN embedding TYPE vector(768)"))
+                    conn.commit()
+                except Exception as e:
+                    print(f"DB init warning (embedding conversion): {e}", flush=True)
+
+                try:
+                    conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 3"))
+                    conn.commit()
+                except Exception as e:
+                    print(f"DB init warning (priority column): {e}", flush=True)
+
+                try:
+                    conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS date TIMESTAMP NULL"))
+                    conn.commit()
+                except Exception as e:
+                    print(f"DB init warning (date column): {e}", flush=True)
+
+                try:
+                    conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP NULL"))
+                    conn.commit()
+                except Exception as e:
+                    print(f"DB init warning (due_date column): {e}", flush=True)
+
+                try:
+                    conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed BOOLEAN DEFAULT FALSE"))
+                    conn.commit()
+                except Exception:
+                    try:
+                        conn.execute(text("ALTER TABLE tasks ALTER COLUMN completed TYPE BOOLEAN USING (completed::boolean)"))
+                        conn.commit()
+                    except Exception as e:
+                        print(f"DB init warning (completed column conversion): {e}", flush=True)
+        
+        Base.metadata.create_all(bind=engine)
+        print("🚀 Database initialization complete!", flush=True)
+    except Exception as e:
+        print(f"⚠️ Database connection failed during startup: {e}", flush=True)
+        print("FastAPI will start, but database endpoints will fail until connection is resolved.", flush=True)
+
+    print("🚀 Scheduler başlatılıyor...", flush=True)
     start_scheduler()
 
 
 @app.on_event("shutdown")
 def shutdown_event():
     if scheduler.running:
-        print("🛑 Scheduler kapatılıyor...")
+        print("🛑 Scheduler kapatılıyor...", flush=True)
         scheduler.shutdown(wait=False)

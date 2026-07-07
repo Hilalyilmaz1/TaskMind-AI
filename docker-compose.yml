@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: tasks
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -25,12 +25,13 @@ services:
       pgvector_db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8001:8000"
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql://user:password@pgvector_db:5432/tasks
       OLLAMA_URL: http://host.docker.internal:11434
+      TASKMIND_ENABLE_OLLAMA: "false"
       PORT: 8000
     extra_hosts:
       - "host.docker.internal:host-gateway"

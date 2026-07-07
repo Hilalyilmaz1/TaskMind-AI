@@ -1,27 +1,28 @@
 import os
-from langchain_ollama import OllamaLLM
-from app.ai.extraction import llm
+from app.ai.llm import llm
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
 
-llm = OllamaLLM(
-    model="llama3",
-    base_url=OLLAMA_URL
-)
+def prioritize_task(text: str):
+    if llm is None or llm.provider is None:
+        return 3
 
-def prioritize_task(text:str):
-    prompt=f"""
-    Bu görevin önceliği nedir? 1-5 arasında bir sayı ver. 1 en yüksek öncelik, 5 en düşük önceliktir.
+    prompt = f"""
+    What is the priority of this task? Return only a number between 1 and 5.
+    1 means very important, 5 means low importance.
+
+    Task:
     {text}
-    1=Çok önemli
-    5=Önemsiz
-
-    sadecce sayı döndür.
     """
 
-    response=llm.invoke(prompt)
-
     try:
-        return int(response.content.strip())       
-    except:
-        return 3               
+        response = llm.invoke(prompt)
+        # Clean response to retrieve just the digits
+        import re
+        digits = re.findall(r"\d", response)
+        if digits:
+            val = int(digits[0])
+            if 1 <= val <= 5:
+                return val
+        return 3
+    except Exception:
+        return 3

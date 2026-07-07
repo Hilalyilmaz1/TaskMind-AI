@@ -1,16 +1,21 @@
 from datetime import datetime, timedelta
-from app.ai.extraction import llm
 import re
 
+from app.ai.llm import llm
+
+
 def parse_datetime(text: str):
+    if llm is None:
+        return _fallback_parse_datetime(text)
+
     prompt = f"""
-Aşağıdaki metinden tarih ve saat çıkar:
+Extract date and time from this task:
 "{text}"
 
 Format:
 YYYY-MM-DD HH:MM
 
-Eğer tarih veya saat yoksa NONE döndür.
+Return NONE if date or time is missing.
 """
     try:
         response = llm.invoke(prompt)
@@ -31,10 +36,12 @@ def _fallback_parse_datetime(text: str, parsed: str | None = None):
     now = datetime.now()
     lower_text = text.lower()
 
-    if "yarın" in lower_text or "yarin" in lower_text or "tomorrow" in lower_text:
+    if "yarin" in lower_text or "yarın" in lower_text or "tomorrow" in lower_text:
         date = now + timedelta(days=1)
-    elif "bugün" in lower_text or "bugun" in lower_text or "today" in lower_text:
+    elif "bugun" in lower_text or "bugün" in lower_text or "today" in lower_text:
         date = now
+    elif "haftaya" in lower_text or "next week" in lower_text:
+        date = now + timedelta(days=7)
     else:
         date = now
 
@@ -43,7 +50,12 @@ def _fallback_parse_datetime(text: str, parsed: str | None = None):
         hour = int(time_match.group(1))
         minute = int(time_match.group(2)) if time_match.group(2) else 0
         candidate = date.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if candidate < now and "yarın" not in lower_text and "yarin" not in lower_text and "tomorrow" not in lower_text:
+        if (
+            candidate < now
+            and "yarin" not in lower_text
+            and "yarın" not in lower_text
+            and "tomorrow" not in lower_text
+        ):
             candidate += timedelta(days=1)
         return candidate
 
