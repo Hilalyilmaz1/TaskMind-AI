@@ -4,6 +4,9 @@ TaskMind AI is a state-of-the-art, AI-assisted task management and productivity 
 
 ---
 
+## Live Demo:
+[http://13.49.49.223:8501/](http://13.49.49.223:8501/)
+
 ## 🏗️ System Architecture
 
 TaskMind AI uses a decoupled three-tier architecture:
