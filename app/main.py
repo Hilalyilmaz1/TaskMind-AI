@@ -166,6 +166,8 @@ def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     task_obj.completed = request.completed
+    if not request.completed:
+        task_obj.reminder_sent = False
     db.commit()
     db.refresh(task_obj)
 
@@ -492,6 +494,12 @@ def startup_event():
                         conn.commit()
                     except Exception as e:
                         print(f"DB init warning (completed column conversion): {e}", flush=True)
+
+                try:
+                    conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE"))
+                    conn.commit()
+                except Exception as e:
+                    print(f"DB init warning (reminder_sent column): {e}", flush=True)
         
         Base.metadata.create_all(bind=engine)
         print("🚀 Database initialization complete!", flush=True)

@@ -27,6 +27,7 @@ class Task(Base):
     due_date=Column(DateTime,nullable=True)
     #completed=Column(Integer,default=0)  # 0: not completed, 1: completed
     completed = Column(Boolean, default=False)
+    reminder_sent = Column(Boolean, default=False, server_default='false')
 
     user_id = Column(Integer, ForeignKey("users.id"))
 

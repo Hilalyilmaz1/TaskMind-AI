@@ -17,7 +17,9 @@ def check_tasks():
         upcoming = now + timedelta(minutes=10)
 
         tasks = db.query(Task).filter(
-            Task.due_date != None
+            Task.due_date != None,
+            Task.completed == False,
+            Task.reminder_sent == False
         ).all()
 
         print(f"Scheduler: {len(tasks)} görev yüklendi", flush=True)
@@ -37,8 +39,14 @@ def check_tasks():
                 print(reminder_msg, flush=True)
                 try:
                     send_telegram(reminder_msg)
+                    task.reminder_sent = True
+                    db.commit()
                 except Exception as e:
-                    print(f"Telegram hatası: {e}", flush=True)
+                    print(f"Telegram veya DB hatası: {e}", flush=True)
+                    try:
+                        db.rollback()
+                    except Exception:
+                        pass
     except Exception as e:
         print(f"Scheduler hata: {e}", flush=True)
         if db is not None:
